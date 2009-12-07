@@ -22,7 +22,7 @@
 /*! \mainpage
  *  \htmlinclude manifest.html
  * 
- * The 3dmgx2 driver is fully contained in the class ms_3dmgx2_driver::IMU
+ * The 3dmgx2 driver is fully contained in the class microstrain_3dmgx2_imu::IMU
  */
 
 #ifndef MS_3DMGX2_HH
@@ -32,7 +32,7 @@
 #include <stdexcept>
 #include <stdint.h>
 
-namespace ms_3dmgx2_driver
+namespace microstrain_3dmgx2_imu
 {
 
   //! Macro for defining exception (std::runtime_error should be top parent)
@@ -51,7 +51,7 @@ namespace ms_3dmgx2_driver
   //! A class for interfacing to the microstrain 3dmgx2 and inertialink IMUs
   /*!
    * Many of the methods within this class may throw an
-   * ms_3dmgx2_driver::exception, timeout_exception, or
+   * microstrain_3dmgx2_imu::exception, timeout_exception, or
    * corrupted_data_exception.
    *
    * Before using the IMU, it must be opened via the open_port method.
@@ -76,11 +76,11 @@ namespace ms_3dmgx2_driver
    *
    * Example code:
    * \code
-   *   ms_3dmgx2_driver::IMU imu;
+   *   microstrain_3dmgx2_imu::IMU imu;
    *   imu.open_port("/dev/ttyUSB0");
    *   imu.init_time();
    *   imu.init_gyros();
-   *   imu.set_continuous(ms_3dmgx2_driver::IMU::CMD_ACCEL_ANGRATE_ORIENT);
+   *   imu.set_continuous(microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT);
    *   while (int i = 0 ; i < 100; i++)
    *   {
    *     double accel[3];

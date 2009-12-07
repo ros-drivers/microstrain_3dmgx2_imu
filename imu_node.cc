@@ -91,7 +91,7 @@ Reads the following parameters from the parameter server
 #include <math.h>
 #include <iostream>
 
-#include "3dmgx2_driver/3dmgx2.h"
+#include "microstrain_3dmgx2_imu/3dmgx2.h"
 
 #include "ros/time.h"
 #include "self_test/self_test.h"
@@ -104,7 +104,7 @@ Reads the following parameters from the parameter server
 #include "std_srvs/Empty.h"
 
 #include "tf/transform_datatypes.h"
-#include "microstrain_3dmgx2_node/AddOffset.h"
+#include "microstrain_3dmgx2_imu/AddOffset.h"
 
 #include "boost/thread.hpp"
 #include "std_msgs/Bool.h"
@@ -114,12 +114,12 @@ using namespace std;
 class ImuNode 
 {
 public:
-  ms_3dmgx2_driver::IMU imu;
+  microstrain_3dmgx2_imu::IMU imu;
   sensor_msgs::Imu reading;
 
   string port;
 
-  ms_3dmgx2_driver::IMU::cmd cmd;
+  microstrain_3dmgx2_imu::IMU::cmd cmd;
 
   SelfTest<ImuNode> self_test_;
   diagnostic_updater::Updater diagnostic_;
@@ -174,7 +174,7 @@ public:
     
     private_node_handle_.param("port", port, string("/dev/ttyUSB0"));
 
-    cmd = ms_3dmgx2_driver::IMU::CMD_ACCEL_ANGRATE_ORIENT;
+    cmd = microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT;
     
     running = false;
 
@@ -237,10 +237,10 @@ public:
       char dev_model_num[17];
       char dev_serial_num[17];
       char dev_opt[17];
-      imu.getDeviceIdentifierString(ms_3dmgx2_driver::IMU::ID_DEVICE_NAME, dev_name);
-      imu.getDeviceIdentifierString(ms_3dmgx2_driver::IMU::ID_MODEL_NUMBER, dev_model_num);
-      imu.getDeviceIdentifierString(ms_3dmgx2_driver::IMU::ID_SERIAL_NUMBER, dev_serial_num);
-      imu.getDeviceIdentifierString(ms_3dmgx2_driver::IMU::ID_DEVICE_OPTIONS, dev_opt);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_NAME, dev_name);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_MODEL_NUMBER, dev_model_num);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_SERIAL_NUMBER, dev_serial_num);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_OPTIONS, dev_opt);
       ROS_INFO("Connected to IMU [%s] model [%s] s/n [%s] options [%s]",
           dev_name, dev_model_num, dev_serial_num, dev_opt);
 
@@ -266,7 +266,7 @@ public:
 
       running = true;
 
-    } catch (ms_3dmgx2_driver::Exception& e) {
+    } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
       ROS_ERROR("Exception thrown while starting IMU.\n %s", e.what());
       diagnostic_.broadcast(2, "Error opening IMU.");
@@ -283,7 +283,7 @@ public:
       try
       {
         imu.closePort();
-      } catch (ms_3dmgx2_driver::Exception& e) {
+      } catch (microstrain_3dmgx2_imu::Exception& e) {
         error_count_++;
         ROS_INFO("Exception thrown while stopping IMU.\n %s", e.what());
       }
@@ -337,7 +337,7 @@ public:
         ROS_WARN("Publishing took %f ms. Nominal is 10 ms.", 1000 * (endtime - starttime));
         
       freq_diag_.tick();
-    } catch (ms_3dmgx2_driver::Exception& e) {
+    } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
       ROS_INFO("Exception thrown while trying to get the IMU reading.\n%s", e.what());
       return -1;
@@ -384,7 +384,7 @@ public:
     try
     {
       imu.closePort();
-    } catch (ms_3dmgx2_driver::Exception& e) {
+    } catch (microstrain_3dmgx2_imu::Exception& e) {
     }
   }
 
@@ -419,7 +419,7 @@ public:
 
     status.name = "Read ID Test";
 
-    imu.getDeviceIdentifierString(ms_3dmgx2_driver::IMU::ID_SERIAL_NUMBER, id);
+    imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_SERIAL_NUMBER, id);
 
     self_test_.setID(id);
     
@@ -448,7 +448,7 @@ public:
     double accel[3];
     double angrate[3];
 
-    if (!imu.setContinuous(ms_3dmgx2_driver::IMU::CMD_ACCEL_ANGRATE))
+    if (!imu.setContinuous(microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE))
     {
       status.summary(2, "Could not start streaming data.");
     } else {
@@ -478,7 +478,7 @@ public:
     double grav_y = 0.0;
     double grav_z = 0.0;
 
-    if (!imu.setContinuous(ms_3dmgx2_driver::IMU::CMD_ACCEL_ANGRATE))
+    if (!imu.setContinuous(microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE))
     {
       status.summary(2, "Could not start streaming data.");
     } else {
@@ -501,7 +501,7 @@ public:
                     pow(grav_y / (double)(num), 2.0) + 
                     pow(grav_z / (double)(num), 2.0));
       
-      //      double err = (grav - ms_3dmgx2_driver::G);
+      //      double err = (grav - microstrain_3dmgx2_imu::G);
       double err = (grav - 9.796);
       
       if (fabs(err) < .05)
@@ -572,7 +572,7 @@ public:
 
   }
 
-  bool addOffset(microstrain_3dmgx2_node::AddOffset::Request &req, microstrain_3dmgx2_node::AddOffset::Response &resp)
+  bool addOffset(microstrain_3dmgx2_imu::AddOffset::Request &req, microstrain_3dmgx2_imu::AddOffset::Response &resp)
   {
     double offset = req.add_offset;
     offset_ += offset;

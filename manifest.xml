@@ -8,7 +8,6 @@
   <url>http://www.ros.org/wiki/microstrain_3dmgx2_imu</url>
   <depend package="roscpp"/>
   <depend package="sensor_msgs"/>
-  <depend package="3dmgx2_driver"/>
   <depend package="self_test"/>
   <depend package="diagnostic_updater"/>
   <depend package="tf"/>
