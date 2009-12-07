@@ -34,7 +34,7 @@
 
 @htmlinclude manifest.html
 
-@b The imu_node is designed to make use of the microstrain inertialink
+@b The microstrain_3dmgx2_node is designed to make use of the microstrain inertialink
 or 3dmgx2 IMUs and makes use of the 3dmgx2_driver.
 
 <hr>
@@ -51,7 +51,7 @@ which is taken from the 3DMGX2 ACCEL_ANGRATE_ORIENTATION message.
 @par Example
 
 @verbatim
-$ imu_node
+$ microstrain_3dmgx2_node
 @endverbatim
 
 <hr>
@@ -104,7 +104,7 @@ Reads the following parameters from the parameter server
 #include "std_srvs/Empty.h"
 
 #include "tf/transform_datatypes.h"
-#include "imu_node/AddOffset.h"
+#include "microstrain_3dmgx2_node/AddOffset.h"
 
 #include "boost/thread.hpp"
 #include "std_msgs/Bool.h"
@@ -162,9 +162,11 @@ public:
   {
     imu_data_pub_ = node_handle_.advertise<sensor_msgs::Imu>("imu_data", 100);
 
+    ros::NodeHandle imu_data_node_handle(node_handle_, "imu_data");
+    
     add_offset_serv_ = private_node_handle_.advertiseService("add_offset", &ImuNode::addOffset, this);
-    calibrate_serv_ = private_node_handle_.advertiseService("calibrate", &ImuNode::calibrate, this);
-    is_calibrated_pub_ = private_node_handle_.advertise<std_msgs::Bool>("is_calibrated", 1, true);
+    calibrate_serv_ = imu_data_node_handle.advertiseService("calibrate", &ImuNode::calibrate, this);
+    is_calibrated_pub_ = imu_data_node_handle.advertise<std_msgs::Bool>("is_calibrated", 1, true);
 
     publish_is_calibrated();
 
@@ -570,7 +572,7 @@ public:
 
   }
 
-  bool addOffset(imu_node::AddOffset::Request &req, imu_node::AddOffset::Response &resp)
+  bool addOffset(microstrain_3dmgx2_node::AddOffset::Request &req, microstrain_3dmgx2_node::AddOffset::Response &resp)
   {
     double offset = req.add_offset;
     offset_ += offset;
@@ -620,7 +622,7 @@ public:
 int
 main(int argc, char** argv)
 {
-  ros::init(argc, argv, "imu_node");
+  ros::init(argc, argv, "microstrain_3dmgx2_node");
 
   ros::NodeHandle nh;
 
