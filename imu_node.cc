@@ -91,6 +91,8 @@ Reads the following parameters from the parameter server
 #include <math.h>
 #include <iostream>
 
+#include <boost/format.hpp>
+
 #include "microstrain_3dmgx2_imu/3dmgx2.h"
 
 #include "ros/time.h"
@@ -106,7 +108,6 @@ Reads the following parameters from the parameter server
 #include "tf/transform_datatypes.h"
 #include "microstrain_3dmgx2_imu/AddOffset.h"
 
-#include "boost/thread.hpp"
 #include "std_msgs/Bool.h"
 
 using namespace std;
@@ -121,7 +122,7 @@ public:
 
   microstrain_3dmgx2_imu::IMU::cmd cmd;
 
-  SelfTest<ImuNode> self_test_;
+  self_test::TestRunner self_test_;
   diagnostic_updater::Updater diagnostic_;
 
   ros::NodeHandle node_handle_;
@@ -154,7 +155,7 @@ public:
   double desired_freq_;
   diagnostic_updater::FrequencyStatus freq_diag_;
 
-  ImuNode(ros::NodeHandle h) : self_test_(this), diagnostic_(h), 
+  ImuNode(ros::NodeHandle h) : self_test_(), diagnostic_(), 
   node_handle_(h), private_node_handle_("~"), calibrated_(false), 
   calibrate_request_(false), error_count_(0), 
   desired_freq_(100), 
@@ -205,15 +206,15 @@ public:
     reading.orientation_covariance[4] = orientation_covariance;
     reading.orientation_covariance[8] = orientation_covariance;
     
-    self_test_.setPretest(&ImuNode::pretest);
-    self_test_.addTest(&ImuNode::InterruptionTest);
-    self_test_.addTest(&ImuNode::ConnectTest);
-    self_test_.addTest(&ImuNode::ReadIDTest);
-    self_test_.addTest(&ImuNode::GyroBiasTest);
-    self_test_.addTest(&ImuNode::StreamedDataTest);
-    self_test_.addTest(&ImuNode::GravityTest);
-    self_test_.addTest(&ImuNode::DisconnectTest);
-    self_test_.addTest(&ImuNode::ResumeTest);
+    self_test_.add("Close Test", this, &ImuNode::pretest);
+    self_test_.add("Interruption Test", this, &ImuNode::InterruptionTest);
+    self_test_.add("Connect Test", this, &ImuNode::ConnectTest);
+    self_test_.add("Read ID Test", this, &ImuNode::ReadIDTest);
+    self_test_.add("Gyro Bias Test", this, &ImuNode::GyroBiasTest);
+    self_test_.add("Streamed Data Test", this, &ImuNode::StreamedDataTest);
+    self_test_.add("Gravity Test", this, &ImuNode::GravityTest);
+    self_test_.add("Disconnect Test", this, &ImuNode::DisconnectTest);
+    self_test_.add("Resume Test", this, &ImuNode::ResumeTest);
 
     diagnostic_.add( freq_diag_ );
     diagnostic_.add( "Calibration Status", this, &ImuNode::calibrationStatus );
@@ -233,16 +234,7 @@ public:
     {
       imu.openPort(port.c_str());
 
-      char dev_name[17];
-      char dev_model_num[17];
-      char dev_serial_num[17];
-      char dev_opt[17];
-      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_NAME, dev_name);
-      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_MODEL_NUMBER, dev_model_num);
-      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_SERIAL_NUMBER, dev_serial_num);
-      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_OPTIONS, dev_opt);
-      ROS_INFO("Connected to IMU [%s] model [%s] s/n [%s] options [%s]",
-          dev_name, dev_model_num, dev_serial_num, dev_opt);
+      diagnostic_.setHardwareID(getID(true));
 
       if (autocalibrate_)
       {
@@ -274,6 +266,36 @@ public:
     }
 
     return(0);
+  }
+      
+  std::string getID(bool output_info = false)
+  {
+      char dev_name[17];
+      char dev_model_num[17];
+      char dev_serial_num[17];
+      char dev_opt[17];
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_NAME, dev_name);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_MODEL_NUMBER, dev_model_num);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_SERIAL_NUMBER, dev_serial_num);
+      imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_DEVICE_OPTIONS, dev_opt);
+      
+      if (output_info)
+        ROS_INFO("Connected to IMU [%s] model [%s] s/n [%s] options [%s]",
+          dev_name, dev_model_num, dev_serial_num, dev_opt);
+      
+      char *dev_name_ptr = dev_name;
+      char *dev_model_num_ptr = dev_model_num;
+      char *dev_serial_num_ptr = dev_serial_num;
+      
+      while (*dev_name_ptr == ' ')
+        dev_name_ptr++;
+      while (*dev_model_num_ptr == ' ')
+        dev_model_num_ptr++;
+      while (*dev_serial_num_ptr == ' ')
+        dev_serial_num_ptr++;
+
+
+      return (boost::format("%s_%s-%s")%dev_name_ptr%dev_model_num_ptr%dev_serial_num_ptr).str();
   }
   
   int stop()
@@ -379,35 +401,28 @@ public:
     is_calibrated_pub_.publish(msg);
   }
 
-  void pretest()
+  void pretest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     try
     {
       imu.closePort();
+
+      status.summary(0, "Device closed successfully.");
     } catch (microstrain_3dmgx2_imu::Exception& e) {
+      status.summary(1, "Failed to close device.");
     }
   }
 
   void InterruptionTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Interruption Test";
-
     if (imu_data_pub_.getNumSubscribers() == 0 )
-    {
-      status.level = 0;
-      status.message = "No operation interrupted.";
-    }
+      status.summary(0, "No operation interrupted.");
     else
-    {
-      status.level = 1;
-      status.message = "There were active subscribers.  Running of self test interrupted operations.";
-    }
+      status.summary(1, "There were active subscribers.  Running of self test interrupted operations.");
   }
 
   void ConnectTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Connection Test";
-
     imu.openPort(port.c_str());
 
     status.summary(0, "Connected successfully.");
@@ -415,21 +430,13 @@ public:
 
   void ReadIDTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    char id[17];
-
-    status.name = "Read ID Test";
-
-    imu.getDeviceIdentifierString(microstrain_3dmgx2_imu::IMU::ID_SERIAL_NUMBER, id);
-
-    self_test_.setID(id);
+    self_test_.setID(getID());
     
     status.summary(0, "Read Successfully");
   }
 
   void GyroBiasTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Gyro Bias Test";
-
     imu.initGyros(&bias_x_, &bias_y_, &bias_z_);
 
     status.summary(0, "Successfully calculated gyro biases.");
@@ -439,11 +446,8 @@ public:
     status.add("Bias_Z", bias_z_);
   }
 
-
   void StreamedDataTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Streamed Data Test";
-
     uint64_t time;
     double accel[3];
     double angrate[3];
@@ -466,8 +470,6 @@ public:
 
   void GravityTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Streamed Data Test";
-
     uint64_t time;
     double accel[3];
     double angrate[3];
@@ -519,8 +521,6 @@ public:
 
   void DisconnectTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Disconnect Test";
-
     imu.closePort();
 
     status.summary(0, "Disconnected successfully.");
@@ -528,8 +528,6 @@ public:
 
   void ResumeTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
-    status.name = "Resume Test";
-
     if (running)
     {
 
@@ -627,12 +625,7 @@ main(int argc, char** argv)
   ros::NodeHandle nh;
 
   ImuNode in(nh);
-  
-  boost::thread DriverSpinThread(boost::bind(&ImuNode::spin, &in));
-
-  ros::spin();
-
-  DriverSpinThread.timed_join(boost::posix_time::seconds(2) );
+  in.spin();
 
   return(0);
 }
