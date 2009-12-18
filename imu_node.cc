@@ -135,8 +135,8 @@ public:
   bool running;
 
   bool autocalibrate_;
+  bool calibrate_requested_;
   bool calibrated_;
-  volatile bool calibrate_request_;
   
   int error_count_;
 
@@ -156,8 +156,9 @@ public:
   diagnostic_updater::FrequencyStatus freq_diag_;
 
   ImuNode(ros::NodeHandle h) : self_test_(), diagnostic_(), 
-  node_handle_(h), private_node_handle_("~"), calibrated_(false), 
-  calibrate_request_(false), error_count_(0), 
+  node_handle_(h), private_node_handle_("~"), calibrate_requested_(false),
+  calibrated_(false), 
+  error_count_(0), 
   desired_freq_(100), 
   freq_diag_(diagnostic_updater::FrequencyStatusParam(&desired_freq_, &desired_freq_, 0.05))
   {
@@ -236,10 +237,10 @@ public:
 
       diagnostic_.setHardwareID(getID(true));
 
-      if (autocalibrate_)
+      if (autocalibrate_ || calibrate_requested_)
       {
-        calibrate_request_ = true;
-        calibrate_req_check();
+        doCalibrate();
+        calibrate_requested_ = false;
       }
       else
       {
@@ -379,13 +380,13 @@ public:
             break;
           self_test_.checkTest();
           diagnostic_.update();
-          calibrate_req_check();
+          ros::spinOnce();
         }
       } else {
         usleep(1000000);
         self_test_.checkTest();
         diagnostic_.update();
-        calibrate_req_check();
+        ros::spinOnce();
       }
     }
 
@@ -518,7 +519,6 @@ public:
     }
   }
 
-
   void DisconnectTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     imu.closePort();
@@ -592,28 +592,42 @@ public:
 
   bool calibrate(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
   {
-    calibrate_request_ = true;
+    bool old_running = running;
 
-    while (calibrate_request_)
+    try
     {
-      sleep(1); // The calibration takes 10s, so this is plenty often enough.
+      calibrate_requested_ = true;
+      if (old_running)
+      {
+        stop();
+        start(); // Start will do the calibration.
+      }
+      else
+      {
+        imu.openPort(port.c_str());
+        doCalibrate();
+        imu.closePort();
+      } 
+    } catch (microstrain_3dmgx2_imu::Exception& e) {
+      error_count_++;
+      ROS_ERROR("Exception thrown while calibrating IMU %s", e.what());
+      stop();
+      if (old_running)
+        start(); // Might throw, but we have nothing to lose... Needs restructuring.
+      return false;
     }
-
+    
     return true;
   }
   
-  void calibrate_req_check()
-  {
-    if (calibrate_request_)
-    {
-      ROS_INFO("Calibrating IMU gyros.");
-      imu.initGyros(&bias_x_, &bias_y_, &bias_z_);
-      calibrated_ = true;
-      publish_is_calibrated();
-      calibrate_request_ = false;
-      ROS_INFO("IMU gyro calibration completed.");
-      freq_diag_.clear();
-    }
+  void doCalibrate()
+  { // Expects to be called with the IMU stopped.
+    ROS_INFO("Calibrating IMU gyros.");
+    imu.initGyros(&bias_x_, &bias_y_, &bias_z_);
+    calibrated_ = true;
+    publish_is_calibrated();
+    ROS_INFO("IMU gyro calibration completed.");
+    freq_diag_.clear();
   }
 };
 
