@@ -62,15 +62,15 @@ Subscribes to (name/type):
 - None
 
 Publishes to (name / type):
-- @b "imu_data"/<a href="../../sensor_msgs/html/classstd__msgs_1_1Imu.html">sensor_msgs/Imu</a> : the imu data
-- @b "/diagnostics"/<a href="../../diagnostic_msgs/html/classrobot__msgs_1_1DiagnosticMessage.html">diagnostic_msgs/DiagnosticMessage</a> : diagnostic status information.
-- @b "~is_calibrated" :  Latched topic indicating if the gyro is calibrated. 
+- @b "imu_data"<a href="../../sensor_msgs/html/classstd__msgs_1_1Imu.html">sensor_msgs/Imu</a> : the imu data
+- @b "/diagnostics"<a href="../../diagnostic_msgs/html/classrobot__msgs_1_1DiagnosticMessage.html">diagnostic_msgs/DiagnosticMessage</a> : diagnostic status information.
+- @b "~is_calibrated"<a href="../../std_msgs/html/classrobot__msgs_1_1Bool.html">std_msgs/Bool</a> :  Latched topic indicating if the gyro is calibrated. 
 
 <hr>
 
 @section services
  - @b "~self_test"     :  SelfTest service provided by SelfTest helper class
- - @b "~calibrate"     :  Calibrate the gyro's biases. The gyro must not move during calibration
+ - @b "imu_data/calibrate"     :  Calibrate the gyro's biases. The gyro must not move during calibration
 
 <hr>
 
