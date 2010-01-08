@@ -34,56 +34,7 @@
 
 @htmlinclude manifest.html
 
-@b The microstrain_3dmgx2_node is designed to make use of the microstrain inertialink
-or 3dmgx2 IMUs and makes use of the 3dmgx2_driver.
-
-<hr>
-
-@section information Information
-
-The IMU provides a single message Imu messaged at 100Hz
-which is taken from the 3DMGX2 ACCEL_ANGRATE_ORIENTATION message.
-
-<hr>
-
-@section usage Usage
-
-@par Example
-
-@verbatim
-$ microstrain_3dmgx2_node
-@endverbatim
-
-<hr>
-
-@section topic ROS topics
-
-Subscribes to (name/type):
-- None
-
-Publishes to (name / type):
-- @b "imu_data"<a href="../../sensor_msgs/html/classstd__msgs_1_1Imu.html">sensor_msgs/Imu</a> : the imu data
-- @b "/diagnostics"<a href="../../diagnostic_msgs/html/classrobot__msgs_1_1DiagnosticMessage.html">diagnostic_msgs/DiagnosticMessage</a> : diagnostic status information.
-- @b "~is_calibrated"<a href="../../std_msgs/html/classrobot__msgs_1_1Bool.html">std_msgs/Bool</a> :  Latched topic indicating if the gyro is calibrated. 
-
-<hr>
-
-@section services
- - @b "~self_test"     :  SelfTest service provided by SelfTest helper class
- - @b "imu_data/calibrate"     :  Calibrate the gyro's biases. The gyro must not move during calibration
-
-<hr>
-
-@section parameters ROS parameters
-
-Reads the following parameters from the parameter server
-
- - @b "~port"          : @b [string] the port the imu is running on
- - @b "~frame_id"      : @b [string] the frame in which imu readings will be returned (Default: "imu")
- - @b "~autocalibrate" : @b [bool] whether the imu automatically computes its biases at startup (not useful if you intend to calibrate via the calibrate service)
- - @b "~orientation_stdev" : @b [double] square root of the orientation_covariance diagonal elements in rad (Default: 0.035)
- - @b "~angular_velocity_stdev" : @b [double] square root of the angular_velocity_covariance diagonal elements in rad/s (Default: 0.012)
- - @b "~linear_acceleration_stdev" : @b [double] square root of the linear_acceleration_covariance diagonal elements in m/s^2 (Default: 0.098)
+This package has no released C++ API.
 
  **/
 
@@ -112,6 +63,11 @@ Reads the following parameters from the parameter server
 
 using namespace std;
 
+void oldSubscribeCallback(const ros::SingleSubscriberPublisher& pub)
+{
+  ROS_WARN("Connected to deprecated imu_data or imu_data/is_calibrated topic. Please use imu/data or imu/is_calibrated instead.");
+}
+
 class ImuNode 
 {
 public:
@@ -127,10 +83,13 @@ public:
 
   ros::NodeHandle node_handle_;
   ros::NodeHandle private_node_handle_;
+  ros::Publisher imu_data_pub_old_;
   ros::Publisher imu_data_pub_;
   ros::ServiceServer add_offset_serv_;
   ros::ServiceServer calibrate_serv_;
+  ros::ServiceServer calibrate_serv_old_;
   ros::Publisher is_calibrated_pub_;
+  ros::Publisher is_calibrated_pub_old_;
 
   bool running;
 
@@ -162,13 +121,17 @@ public:
   desired_freq_(100), 
   freq_diag_(diagnostic_updater::FrequencyStatusParam(&desired_freq_, &desired_freq_, 0.05))
   {
-    imu_data_pub_ = node_handle_.advertise<sensor_msgs::Imu>("imu_data", 100);
+    imu_data_pub_old_ = node_handle_.advertise<sensor_msgs::Imu>("imu_data", 100, (const ros::SubscriberStatusCallback &) oldSubscribeCallback);
 
-    ros::NodeHandle imu_data_node_handle(node_handle_, "imu_data");
+    ros::NodeHandle imu_data_node_handle_old(node_handle_, "imu_data");
+    ros::NodeHandle imu_node_handle(node_handle_, "imu");
     
+    imu_data_pub_ = imu_node_handle.advertise<sensor_msgs::Imu>("data", 100);
     add_offset_serv_ = private_node_handle_.advertiseService("add_offset", &ImuNode::addOffset, this);
-    calibrate_serv_ = imu_data_node_handle.advertiseService("calibrate", &ImuNode::calibrate, this);
-    is_calibrated_pub_ = imu_data_node_handle.advertise<std_msgs::Bool>("is_calibrated", 1, true);
+    calibrate_serv_ = imu_node_handle.advertiseService("calibrate", &ImuNode::calibrate, this);
+    calibrate_serv_old_ = imu_data_node_handle_old.advertiseService("calibrate", &ImuNode::calibrateOld, this);
+    is_calibrated_pub_ = imu_node_handle.advertise<std_msgs::Bool>("is_calibrated", 1, true);
+    is_calibrated_pub_old_ = imu_data_node_handle_old.advertise<std_msgs::Bool>("is_calibrated", 1, oldSubscribeCallback, ros::SubscriberStatusCallback(), ros::VoidPtr(), true);
 
     publish_is_calibrated();
 
@@ -355,6 +318,7 @@ public:
 
       starttime = ros::Time::now().toSec();
       imu_data_pub_.publish(reading);
+      imu_data_pub_old_.publish(reading);
       endtime = ros::Time::now().toSec();
       if (endtime - starttime > 0.025)
         ROS_WARN("Publishing took %f ms. Nominal is 10 ms.", 1000 * (endtime - starttime));
@@ -400,6 +364,7 @@ public:
     std_msgs::Bool msg;
     msg.data = calibrated_;
     is_calibrated_pub_.publish(msg);
+    is_calibrated_pub_old_.publish(msg);
   }
 
   void pretest(diagnostic_updater::DiagnosticStatusWrapper& status)
@@ -588,6 +553,12 @@ public:
     resp.total_offset = offset_;
 
     return true;
+  }
+
+  bool calibrateOld(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
+  {
+    ROS_WARN("The imu_data/calibrate service call is deprecated. Please use imu/calibrate instead.");
+    return calibrate(req, resp);
   }
 
   bool calibrate(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
