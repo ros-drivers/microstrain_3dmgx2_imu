@@ -28,16 +28,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
-
-@mainpage
-
-@htmlinclude manifest.html
-
-This package has no released C++ API.
-
- **/
-
 #include <assert.h>
 #include <math.h>
 #include <iostream>
