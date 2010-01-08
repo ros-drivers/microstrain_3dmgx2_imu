@@ -4,6 +4,6 @@
 
 @htmlinclude manifest.html
 
-This package has no released C++ API.
+This package has no released code API.
 
  **/
