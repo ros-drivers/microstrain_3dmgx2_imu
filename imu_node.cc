@@ -93,6 +93,9 @@ public:
   bool calibrated_;
   
   int error_count_;
+  int slow_count_;
+  std::string was_slow_;
+  std::string error_status_;
 
   string frameid_;
   
@@ -108,11 +111,12 @@ public:
 
   double desired_freq_;
   diagnostic_updater::FrequencyStatus freq_diag_;
-
+  
   ImuNode(ros::NodeHandle h) : self_test_(), diagnostic_(), 
   node_handle_(h), private_node_handle_("~"), calibrate_requested_(false),
   calibrated_(false), 
   error_count_(0), 
+  slow_count_(0), 
   desired_freq_(100), 
   freq_diag_(diagnostic_updater::FrequencyStatusParam(&desired_freq_, &desired_freq_, 0.05))
   {
@@ -185,13 +189,51 @@ public:
     stop();
   }
 
+  void setErrorStatusf(const char *format, ...)
+  {
+    va_list va;
+    char buff[1000]; 
+    va_start(va, format);
+    if (vsnprintf(buff, 1000, format, va) >= 1000)
+      ROS_DEBUG("Really long string in setErrorStatus, it was truncated.");
+    std::string value = std::string(buff);
+    setErrorStatus(buff);
+  }
+
+  // Prints an error message if it isn't the same old error message.
+  void setErrorStatus(const std::string msg)
+  {
+    if (error_status_ != msg)
+    {
+      error_status_ = msg;
+      ROS_ERROR("%s You may find further details at http://www.ros.org/wiki/microstrain_3dmgx2_imu/Troubleshooting", msg.c_str());
+    }
+    else
+    {
+      ROS_DEBUG("%s You may find further details at http://www.ros.org/wiki/microstrain_3dmgx2_imu/Troubleshooting", msg.c_str());
+    }
+  } 
+
+  void clearErrorStatus()
+  {
+    error_status_.clear();
+  }
+
   int start()
   {
     stop();
 
     try
     {
-      imu.openPort(port.c_str());
+      try
+      {
+        imu.openPort(port.c_str());
+      } catch (microstrain_3dmgx2_imu::Exception& e) {
+        error_count_++;
+        setErrorStatus(e.what());
+        diagnostic_.broadcast(2, e.what());
+        return -1;
+      }
 
       diagnostic_.setHardwareID(getID(true));
 
@@ -199,6 +241,7 @@ public:
       {
         doCalibrate();
         calibrate_requested_ = false;
+        autocalibrate_ = false; // No need to do this each time we reopen the device.
       }
       else
       {
@@ -219,7 +262,7 @@ public:
 
     } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
-      ROS_ERROR("Exception thrown while starting IMU.\n %s", e.what());
+      setErrorStatusf("Exception thrown while starting IMU. This sometimes happens if another process is trying to access the IMU port. You may try 'lsof|grep %s' to find processes that have the port open.\n %s", port.c_str(), e.what());
       diagnostic_.broadcast(2, "Error opening IMU.");
       return -1;
     }
@@ -253,7 +296,6 @@ public:
       while (*dev_serial_num_ptr == ' ')
         dev_serial_num_ptr++;
 
-
       return (boost::format("%s_%s-%s")%dev_name_ptr%dev_model_num_ptr%dev_serial_num_ptr).str();
   }
   
@@ -286,12 +328,20 @@ public:
 
       static double prevtime = 0;
       double starttime = ros::Time::now().toSec();
-      if (prevtime && prevtime - starttime > 0.025)
+      if (prevtime && prevtime - starttime > 0.05)
+      {
         ROS_WARN("Full IMU loop took %f ms. Nominal is 10ms.", 1000 * (prevtime - starttime));
+        was_slow_ = "Full IMU loop was slow.";
+        slow_count_++;
+      }
       imu.receiveAccelAngrateOrientation(&time, accel, angrate, orientation);
       double endtime = ros::Time::now().toSec();
-      if (endtime - starttime > 0.025)
+      if (endtime - starttime > 0.05)
+      {
         ROS_WARN("Gathering data took %f ms. Nominal is 10ms.", 1000 * (endtime - starttime));
+        was_slow_ = "Full IMU loop was slow.";
+        slow_count_++;
+      }
       prevtime = starttime;
 
       reading.linear_acceleration.x = accel[0];
@@ -315,13 +365,20 @@ public:
       imu_data_pub_.publish(reading);
       imu_data_pub_old_.publish(reading);
       endtime = ros::Time::now().toSec();
-      if (endtime - starttime > 0.025)
+      if (endtime - starttime > 0.05)
+      {
         ROS_WARN("Publishing took %f ms. Nominal is 10 ms.", 1000 * (endtime - starttime));
+        was_slow_ = "Full IMU loop was slow.";
+        slow_count_++;
+      }
         
       freq_diag_.tick();
+      clearErrorStatus(); // If we got here, then the IMU really is working. Next time an error occurs, we want to print it.
     } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
-      ROS_INFO("Exception thrown while trying to get the IMU reading.\n%s", e.what());
+      usleep(20000); // Give isShuttingDown a chance to go true.
+      if (!ros::isShuttingDown()) // Don't warn if we are shutting down.
+        ROS_WARN("Exception thrown while trying to get the IMU reading. This sometimes happens if another process is trying to access the IMU port. You may try 'lsof|grep %s' to find processes that have the port open. %s", port.c_str(), e.what());
       return -1;
     }
 
@@ -330,7 +387,7 @@ public:
 
   bool spin()
   {
-    while (node_handle_.ok())
+    while (!ros::isShuttingDown()) // Using ros::isShuttingDown to avoid restarting the node during a shutdown.
     {
       if (start() == 0)
       {
@@ -506,14 +563,20 @@ public:
 
   void deviceStatus(diagnostic_updater::DiagnosticStatusWrapper &status)
   {
-    if (running)
-      status.summary(0, "IMU is running");
-    else
+    if (!running)
       status.summary(2, "IMU is stopped");
+    else if (!was_slow_.empty())
+    {
+      status.summary(1, "Excessive delay");
+      was_slow_.clear();
+    }
+    else
+      status.summary(0, "IMU is running");
 
     status.add("Device", port);
     status.add("TF frame", frameid_);
     status.add("Error count", error_count_);
+    status.add("Excessive delay", slow_count_);
   }
 
   void calibrationStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
@@ -527,6 +590,8 @@ public:
     }
     else
       status.summary(2, "Gyro not calibrated");
+      // Note to Kevin. Yes the IMU is running, but it is outputting
+      // garbage, so this is an error.
 
   }
 

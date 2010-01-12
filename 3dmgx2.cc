@@ -42,8 +42,8 @@
 //! Macro for throwing an exception with a message
 #define IMU_EXCEPT(except, msg, ...) \
   { \
-    char buf[100]; \
-    snprintf(buf, 100, "microstrain_3dmgx2_imu::IMU::%s: " msg, __FUNCTION__,##__VA_ARGS__); \
+    char buf[1000]; \
+    snprintf(buf, 1000, msg" (in microstrain_3dmgx2_imu::IMU:%s)", ##__VA_ARGS__, __FUNCTION__); \
     throw except(buf); \
   }
 
@@ -112,29 +112,55 @@ microstrain_3dmgx2_imu::IMU::~IMU()
 void
 microstrain_3dmgx2_imu::IMU::openPort(const char *port_name)
 {
+  closePort(); // In case it was previously open, try to close it first.
+
   // Open the port
-  fd = open(port_name, O_RDWR | O_SYNC , S_IRUSR | S_IWUSR );
+  fd = open(port_name, O_RDWR | O_SYNC , S_IRUSR | S_IWUSR | O_NONBLOCK );
   if (fd < 0)
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to open serial port [%s]; [%s]", port_name, strerror(errno));
+  {
+    const char *extra_msg = "";
+    switch (errno)
+    {
+      case EACCES:
+        extra_msg = "You probably don't have premission to open the port for reading and writing.";
+        break;
+      case ENOENT:
+        extra_msg = "The requested port does not exist. Is the IMU connected? Was the port name misspelled?";
+        break;
+    }
+
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to open serial port [%s]. %s. %s", port_name, strerror(errno), extra_msg);
+  }
+
+  // Lock the port
+  struct flock fl;
+  fl.l_type   = F_WRLCK;
+  fl.l_whence = SEEK_SET;
+  fl.l_start = 0;
+  fl.l_len   = 0;
+  fl.l_pid   = getpid();
+
+  if (fcntl(fd, F_SETLK, &fl) != 0)
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Device %s is already locked. Try 'lsof | grep %s' to find other processes that currently have the port open.", port_name, port_name);
 
   // Change port settings
   struct termios term;
   if (tcgetattr(fd, &term) < 0)
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes");
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes. The port you specified (%s) isn't a serial port.", port_name);
 
   cfmakeraw( &term );
   cfsetispeed(&term, B115200);
   cfsetospeed(&term, B115200);
 
-  if (tcsetattr(this->fd, TCSAFLUSH, &term) < 0 )
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to set serial port attributes");
+  if (tcsetattr(fd, TCSAFLUSH, &term) < 0 )
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes. The port you specified (%s) isn't a serial port.", port_name);
 
   // Stop continuous mode
   stopContinuous();
 
   // Make sure queues are empty before we begin
   if (tcflush(fd, TCIOFLUSH) != 0)
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Tcflush failed");
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Tcflush failed. Please report this error if you see it.");
 }
 
 
@@ -143,17 +169,22 @@ microstrain_3dmgx2_imu::IMU::openPort(const char *port_name)
 void
 microstrain_3dmgx2_imu::IMU::closePort()
 {
-  try {
-    stopContinuous();
-
-  } catch (microstrain_3dmgx2_imu::Exception &e) {
-    // Exceptions here are fine since we are closing anyways
-  }
-  
   if (fd != -1)
+  {
+    if (continuous)
+    {
+      try {
+        stopContinuous();
+
+      } catch (microstrain_3dmgx2_imu::Exception &e) {
+        // Exceptions here are fine since we are closing anyways
+      }
+    }
+
     if (close(fd) != 0)
       IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to close serial port; [%s]", strerror(errno));
-  fd = -1;
+    fd = -1;
+  }
 }
 
 
@@ -169,7 +200,7 @@ microstrain_3dmgx2_imu::IMU::initTime(double fix_off)
   uint8_t rep[31];
   cmd[0] = CMD_RAW;
 
-  transact(cmd, sizeof(cmd), rep, sizeof(rep));
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
   start_time = time_helper();
 
   int k = 25;
@@ -201,7 +232,7 @@ microstrain_3dmgx2_imu::IMU::initGyros(double* bias_x, double* bias_y, double* b
   cmd[2] = 0x29;
   *(unsigned short*)(&cmd[3]) = bswap_16(10000);
 
-  transact(cmd, sizeof(cmd), rep, sizeof(rep));
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 30000);
 
   if (bias_x)
     *bias_x = extract_float(rep + 1);
@@ -227,7 +258,7 @@ microstrain_3dmgx2_imu::IMU::setContinuous(cmd command)
   cmd[2] = 0x29; //Confirms user intent
   cmd[3] = command;
 
-  transact(cmd, sizeof(cmd), rep, sizeof(rep));
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
   
   // Verify that continuous mode is set on correct command:
   if (rep[1] != command) {
@@ -254,6 +285,8 @@ microstrain_3dmgx2_imu::IMU::stopContinuous()
 
   if (tcflush(fd, TCIOFLUSH) != 0)
     IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Tcflush failed");
+
+  continuous = false;
 }
 
 
@@ -270,7 +303,7 @@ microstrain_3dmgx2_imu::IMU::receiveAccelAngrateMag(uint64_t *time, double accel
   uint64_t imu_time;
 
   //ROS_DEBUG("About to do receive.");
-  receive(CMD_ACCEL_ANGRATE_MAG, rep, sizeof(rep), 0, &sys_time);
+  receive(CMD_ACCEL_ANGRATE_MAG, rep, sizeof(rep), 1000, &sys_time);
   //ROS_DEBUG("Receive finished.");
 
   // Read the acceleration:
@@ -312,7 +345,7 @@ microstrain_3dmgx2_imu::IMU::receiveAccelAngrateOrientation(uint64_t *time, doub
   uint64_t imu_time;
 
   //ROS_DEBUG("About to do receive.");
-  receive(CMD_ACCEL_ANGRATE_ORIENT, rep, sizeof(rep), 0, &sys_time);
+  receive(CMD_ACCEL_ANGRATE_ORIENT, rep, sizeof(rep), 1000, &sys_time);
   //ROS_DEBUG("Finished receive.");
 
   // Read the acceleration:
@@ -354,7 +387,7 @@ microstrain_3dmgx2_imu::IMU::receiveAccelAngrate(uint64_t *time, double accel[3]
   uint64_t sys_time;
   uint64_t imu_time;
 
-  receive(CMD_ACCEL_ANGRATE, rep, sizeof(rep), 0, &sys_time);
+  receive(CMD_ACCEL_ANGRATE, rep, sizeof(rep), 1000, &sys_time);
 
   // Read the acceleration:
   k = 1;
@@ -387,7 +420,7 @@ microstrain_3dmgx2_imu::IMU::receiveEuler(uint64_t *time, double *roll, double *
   uint64_t sys_time;
   uint64_t imu_time;
 
-  receive(CMD_EULER, rep, sizeof(rep), 0, &sys_time);
+  receive(CMD_EULER, rep, sizeof(rep), 1000, &sys_time);
 
   *roll  = extract_float(rep + 1);
   *pitch = extract_float(rep + 5);
@@ -408,7 +441,7 @@ bool microstrain_3dmgx2_imu::IMU::getDeviceIdentifierString(id_string type, char
   cmd[0] = CMD_DEV_ID_STR;
   cmd[1] = type;
 
-  transact(cmd, sizeof(cmd), rep, sizeof(rep));
+  transact(cmd, sizeof(cmd), rep, sizeof(rep), 1000);
   
   if (cmd[0] != CMD_DEV_ID_STR || cmd[1] != type)
     return false;
@@ -433,7 +466,7 @@ microstrain_3dmgx2_imu::IMU::receiveAccelAngrateMagOrientation (uint64_t *time, 
 	uint64_t sys_time;
 	uint64_t imu_time;
 
-	receive( CMD_ACCEL_ANGRATE_MAG_ORIENT, rep, sizeof(rep), 0, &sys_time); 
+	receive( CMD_ACCEL_ANGRATE_MAG_ORIENT, rep, sizeof(rep), 1000, &sys_time); 
 
   // Read the acceleration:
   k = 1;
@@ -481,7 +514,7 @@ microstrain_3dmgx2_imu::IMU::receiveRawAccelAngrate(uint64_t *time, double accel
   uint64_t sys_time;
   uint64_t imu_time;
 
-  receive(microstrain_3dmgx2_imu::IMU::CMD_RAW, rep, sizeof(rep), 0, &sys_time);
+  receive(microstrain_3dmgx2_imu::IMU::CMD_RAW, rep, sizeof(rep), 1000, &sys_time);
 
   // Read the accelerator AD register values 0 - 65535 given as float
   k = 1;
@@ -544,7 +577,7 @@ microstrain_3dmgx2_imu::IMU::send(void *cmd, int cmd_len)
   int bytes;
 
   // Write the data to the port
-  bytes = write(this->fd, cmd, cmd_len);
+  bytes = write(fd, cmd, cmd_len);
   if (bytes < 0)
     IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "error writing to IMU [%s]", strerror(errno));
 
@@ -553,12 +586,38 @@ microstrain_3dmgx2_imu::IMU::send(void *cmd, int cmd_len)
 
   // Make sure the queue is drained
   // Synchronous IO doesnt always work
-  if (tcdrain(this->fd) != 0)
+  if (tcdrain(fd) != 0)
     IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "tcdrain failed");
 
   return bytes;
 }
 
+
+static int read_with_timeout(int fd, void *buff, size_t count, int timeout)
+{
+  ssize_t nbytes;
+  int retval;
+
+  struct pollfd ufd[1];
+  ufd[0].fd = fd;
+  ufd[0].events = POLLIN;
+
+  if (timeout == 0)
+    timeout = -1; // For compatibility with former behavior, 0 means no timeout. For poll, negative means no timeout.
+  
+  if ( (retval = poll(ufd, 1, timeout)) < 0 )
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "poll failed  [%s]", strerror(errno));
+
+  if (retval == 0)
+    IMU_EXCEPT(microstrain_3dmgx2_imu::TimeoutException, "timeout reached");
+	
+  nbytes = read(fd, (uint8_t *) buff, count);
+
+  if (nbytes < 0)
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "read failed  [%s]", strerror(errno));
+
+  return nbytes;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Receive a reply from the IMU.
@@ -566,7 +625,7 @@ microstrain_3dmgx2_imu::IMU::send(void *cmd, int cmd_len)
 int
 microstrain_3dmgx2_imu::IMU::receive(uint8_t command, void *rep, int rep_len, int timeout, uint64_t* sys_time)
 {
-  int nbytes, bytes, skippedbytes, retval;
+  int nbytes, bytes, skippedbytes;
 
   skippedbytes = 0;
 
@@ -579,17 +638,7 @@ microstrain_3dmgx2_imu::IMU::receive(uint8_t command, void *rep, int rep_len, in
   
   while (*(uint8_t*)(rep) != command && skippedbytes < MAX_BYTES_SKIPPED)
   {
-    if (timeout > 0)
-    {
-      if ( (retval = poll(ufd, 1, timeout)) < 0 )
-        IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "poll failed  [%s]", strerror(errno));
-      
-      if (retval == 0)
-        IMU_EXCEPT(microstrain_3dmgx2_imu::TimeoutException, "timeout reached");
-    }
-	
-    if (read(this->fd, (uint8_t*) rep, 1) <= 0)
-      IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "read failed [%s]", strerror(errno));
+    read_with_timeout(fd, rep, 1, timeout);
 
     skippedbytes++;
   }
@@ -603,17 +652,8 @@ microstrain_3dmgx2_imu::IMU::receive(uint8_t command, void *rep, int rep_len, in
   // Read the rest of the message:
   while (bytes < rep_len)
   {
-    if (timeout > 0)
-    {
-      if ( (retval = poll(ufd, 1, timeout)) < 0 )
-        IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "poll failed  [%s]", strerror(errno));
-      
-      if (retval == 0)
-        IMU_EXCEPT(microstrain_3dmgx2_imu::TimeoutException, "timeout reached");
-    }
-
-    nbytes = read(this->fd, (uint8_t*) rep + bytes, rep_len - bytes);
-
+    nbytes = read_with_timeout(fd, (uint8_t *)rep + bytes, rep_len - bytes, timeout);
+    
     if (nbytes < 0)
       IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "read failed  [%s]", strerror(errno));
     
