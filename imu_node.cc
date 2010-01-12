@@ -262,7 +262,7 @@ public:
 
     } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
-      setErrorStatusf("Exception thrown while starting IMU. This sometimes happens if another process is trying to access the IMU port. You may try 'lsof|grep %s' to find processes that have the port open.\n %s", port.c_str(), e.what());
+      setErrorStatusf("Exception thrown while starting IMU. This sometimes happens if you are not connected to an IMU or if another process is trying to access the IMU port. You may try 'lsof|grep %s' to see if other processes have the port open. %s", port.c_str(), e.what());
       diagnostic_.broadcast(2, "Error opening IMU.");
       return -1;
     }
@@ -308,7 +308,7 @@ public:
         imu.closePort();
       } catch (microstrain_3dmgx2_imu::Exception& e) {
         error_count_++;
-        ROS_INFO("Exception thrown while stopping IMU.\n %s", e.what());
+        ROS_INFO("Exception thrown while stopping IMU. %s", e.what());
       }
       running = false;
     }
@@ -378,7 +378,7 @@ public:
       error_count_++;
       usleep(20000); // Give isShuttingDown a chance to go true.
       if (!ros::isShuttingDown()) // Don't warn if we are shutting down.
-        ROS_WARN("Exception thrown while trying to get the IMU reading. This sometimes happens if another process is trying to access the IMU port. You may try 'lsof|grep %s' to find processes that have the port open. %s", port.c_str(), e.what());
+        ROS_WARN("Exception thrown while trying to get the IMU reading. This sometimes happens due to a communication glitch, or if another process is trying to access the IMU port. You may try 'lsof|grep %s' to see if other processes have the port open. %s", port.c_str(), e.what());
       return -1;
     }
 
