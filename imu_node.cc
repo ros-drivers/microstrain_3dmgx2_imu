@@ -399,9 +399,10 @@ public:
           ros::spinOnce();
         }
       } else {
+        // No need for diagnostic here since a broadcast occurs in start
+        // when there is an error.
         usleep(1000000);
         self_test_.checkTest();
-        diagnostic_.update();
         ros::spinOnce();
       }
     }
