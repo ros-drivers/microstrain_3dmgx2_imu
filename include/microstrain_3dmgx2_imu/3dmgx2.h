@@ -19,12 +19,6 @@
  */
 
 
-/*! \mainpage
- *  \htmlinclude manifest.html
- * 
- * The 3dmgx2 driver is fully contained in the class microstrain_3dmgx2_imu::IMU
- */
-
 #ifndef MS_3DMGX2_HH
 #define MS_3DMGX2_HH
 
@@ -50,6 +44,9 @@ namespace microstrain_3dmgx2_imu
 
   //! A class for interfacing to the microstrain 3dmgx2 and inertialink IMUs
   /*!
+   * Note: This class is unreviewed and unsupported. It may change at any
+   * time without notice.
+   *
    * Many of the methods within this class may throw an
    * microstrain_3dmgx2_imu::exception, timeout_exception, or
    * corrupted_data_exception.
@@ -61,7 +58,7 @@ namespace microstrain_3dmgx2_imu
    *
    * The library is primarily designed to be used in continuous mode,
    * which is enabled with the set_continuous method, and then serviced
-   * with one o the receive methods.
+   * with one of the receive methods.
    *
    * Implementation of specific polled message transactions can be
    * done with the transact method.

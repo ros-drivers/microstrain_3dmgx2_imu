@@ -4,6 +4,7 @@
 
 @htmlinclude manifest.html
 
-This package has no released code API.
+A currently unstable and unsupported C++ API can be used to communicate
+with 3DM-MG2 IMUs. It is fully contained in the class microstrain_3dmgx2_imu::IMU
 
  **/
