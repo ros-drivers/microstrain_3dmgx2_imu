@@ -146,14 +146,14 @@ microstrain_3dmgx2_imu::IMU::openPort(const char *port_name)
   // Change port settings
   struct termios term;
   if (tcgetattr(fd, &term) < 0)
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes. The port you specified (%s) isn't a serial port.", port_name);
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes. The port you specified (%s) may not be a serial port.", port_name);
 
   cfmakeraw( &term );
   cfsetispeed(&term, B115200);
   cfsetospeed(&term, B115200);
 
   if (tcsetattr(fd, TCSAFLUSH, &term) < 0 )
-    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to get serial port attributes. The port you specified (%s) isn't a serial port.", port_name);
+    IMU_EXCEPT(microstrain_3dmgx2_imu::Exception, "Unable to set serial port attributes. The port you specified (%s) may not be a serial port.", port_name); /// @todo tcsetattr returns true if at least one attribute was set. Hence, we might not have set everything on success.
 
   // Stop continuous mode
   stopContinuous();
