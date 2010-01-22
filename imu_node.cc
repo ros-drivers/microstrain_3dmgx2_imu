@@ -144,7 +144,7 @@ public:
 
     bias_x_ = bias_y_ = bias_z_ = 0;
 
-    private_node_handle_.param("frameid", frameid_, string("imu"));
+    private_node_handle_.param("frame_id", frameid_, string("imu"));
     reading.header.frame_id = frameid_;
 
     private_node_handle_.param("time_offset", offset_, 0.0);
@@ -353,9 +353,12 @@ public:
       reading.angular_velocity.z = angrate[2];
       
       btQuaternion quat;
-      btMatrix3x3(orientation[0], orientation[1], orientation[2],
-                  orientation[3], orientation[4], orientation[5],
-                  orientation[6], orientation[7], orientation[8]).getRotation(quat);
+      (btMatrix3x3(-1,0,0,
+		   0,1,0,
+		   0,0,-1)*
+       btMatrix3x3(orientation[0], orientation[3], orientation[6],
+		   orientation[1], orientation[4], orientation[7],
+		   orientation[2], orientation[5], orientation[8])).getRotation(quat);
       
       tf::quaternionTFToMsg(quat, reading.orientation);
       
