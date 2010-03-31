@@ -101,6 +101,8 @@ public:
   double linear_acceleration_covariance_, linear_acceleration_stdev_;
   double orientation_covariance_, orientation_stdev_;
 
+  double max_drift_rate_;
+
   double desired_freq_;
   diagnostic_updater::FrequencyStatus freq_diag_;
   
@@ -124,6 +126,7 @@ public:
     private_node_handle_.param("autocalibrate", autocalibrate_, true);
     
     private_node_handle_.param("port", port, string("/dev/ttyUSB0"));
+    private_node_handle_.param("max_drift_rate", max_drift_rate_, 0.000100);
 
     cmd = microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT;
     
@@ -307,12 +310,6 @@ public:
   {
     try
     {
-      uint64_t time;
-
-      double accel[3];
-      double angrate[3];
-      double orientation[9];
-
       static double prevtime = 0;
       double starttime = ros::Time::now().toSec();
       if (prevtime && prevtime - starttime > 0.05)
@@ -321,7 +318,7 @@ public:
         was_slow_ = "Full IMU loop was slow.";
         slow_count_++;
       }
-      imu.receiveAccelAngrateOrientation(&time, accel, angrate, orientation);
+      getData(reading);
       double endtime = ros::Time::now().toSec();
       if (endtime - starttime > 0.05)
       {
@@ -330,27 +327,6 @@ public:
         slow_count_++;
       }
       prevtime = starttime;
-
-      reading.linear_acceleration.x = accel[0];
-      reading.linear_acceleration.y = accel[1];
-      reading.linear_acceleration.z = accel[2];
- 
-      reading.angular_velocity.x = angrate[0];
-      reading.angular_velocity.y = angrate[1];
-      reading.angular_velocity.z = angrate[2];
-      
-      btQuaternion quat;
-      (btMatrix3x3(-1,0,0,
-		   0,1,0,
-		   0,0,-1)*
-       btMatrix3x3(orientation[0], orientation[3], orientation[6],
-		   orientation[1], orientation[4], orientation[7],
-		   orientation[2], orientation[5], orientation[8])).getRotation(quat);
-      
-      tf::quaternionTFToMsg(quat, reading.orientation);
-      
-      reading.header.stamp = ros::Time::now().fromNSec(time);
-
       starttime = ros::Time::now().toSec();
       imu_data_pub_.publish(reading);
       endtime = ros::Time::now().toSec();
@@ -452,6 +428,37 @@ public:
     status.add("Bias_Y", bias_y_);
     status.add("Bias_Z", bias_z_);
   }
+
+
+  void getData(sensor_msgs::Imu& data)
+  {
+    uint64_t time;
+    double accel[3];
+    double angrate[3];
+    double orientation[9];
+
+    imu.receiveAccelAngrateOrientation(&time, accel, angrate, orientation);
+    data.linear_acceleration.x = accel[0];
+    data.linear_acceleration.y = accel[1];
+    data.linear_acceleration.z = accel[2];
+ 
+    data.angular_velocity.x = angrate[0];
+    data.angular_velocity.y = angrate[1];
+    data.angular_velocity.z = angrate[2];
+      
+    btQuaternion quat;
+    (btMatrix3x3(-1,0,0,
+		 0,1,0,
+		 0,0,-1)*
+     btMatrix3x3(orientation[0], orientation[3], orientation[6],
+		 orientation[1], orientation[4], orientation[7],
+		 orientation[2], orientation[5], orientation[8])).getRotation(quat);
+    
+    tf::quaternionTFToMsg(quat, data.orientation);
+      
+    data.header.stamp = ros::Time::now().fromNSec(time);
+  }
+
 
   void StreamedDataTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
@@ -638,10 +645,32 @@ public:
   { // Expects to be called with the IMU stopped.
     ROS_INFO("Calibrating IMU gyros.");
     imu.initGyros(&bias_x_, &bias_y_, &bias_z_);
-    calibrated_ = true;
-    publish_is_calibrated();
-    ROS_INFO("IMU gyro calibration completed.");
-    freq_diag_.clear();
+
+    // check calibration
+    if (!imu.setContinuous(microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT)){
+      ROS_ERROR("Could not start streaming data to verify calibration");
+    } 
+    else {
+      // get first setpoint
+      getData(reading);
+      double angle1 = tf::getYaw(reading.orientation);
+      ros::Duration(2.0).sleep();
+      getData(reading);
+      double angle2 = tf::getYaw(reading.orientation);
+      // calibration succeeded
+      if (fabs((angle2-angle1)/2.0) < max_drift_rate_){
+	ROS_INFO("Imu: calibration check succeeded: angular drift %f deg/msec < %f deg/msec", fabs((angle2 - angle1)*180*1000/(2.0*M_PI)), max_drift_rate_*180*1000/M_PI);
+	calibrated_ = true;
+	publish_is_calibrated();
+	ROS_INFO("IMU gyro calibration completed.");
+	freq_diag_.clear();
+      }
+      // calibration failed
+      else{
+	ROS_ERROR("Imu: calibration check failed: angular drift = %f deg/msec > %f deg/msec", fabs((angle2 - angle1)*180*1000/(2.0*M_PI)), max_drift_rate_*180*1000/M_PI);
+      }
+      imu.stopContinuous();
+    }
   }
 };
 
