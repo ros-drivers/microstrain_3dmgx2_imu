@@ -58,11 +58,6 @@
 
 using namespace std;
 
-void oldSubscribeCallback(const ros::SingleSubscriberPublisher& pub)
-{
-  ROS_WARN("Connected to deprecated imu_data or imu_data/is_calibrated topic. Please use imu/data or imu/is_calibrated instead.");
-}
-
 class ImuNode 
 {
 public:
@@ -78,13 +73,10 @@ public:
 
   ros::NodeHandle node_handle_;
   ros::NodeHandle private_node_handle_;
-  ros::Publisher imu_data_pub_old_;
   ros::Publisher imu_data_pub_;
   ros::ServiceServer add_offset_serv_;
   ros::ServiceServer calibrate_serv_;
-  ros::ServiceServer calibrate_serv_old_;
   ros::Publisher is_calibrated_pub_;
-  ros::Publisher is_calibrated_pub_old_;
 
   bool running;
 
@@ -120,17 +112,12 @@ public:
   desired_freq_(100), 
   freq_diag_(diagnostic_updater::FrequencyStatusParam(&desired_freq_, &desired_freq_, 0.05))
   {
-    imu_data_pub_old_ = node_handle_.advertise<sensor_msgs::Imu>("imu_data", 100, (const ros::SubscriberStatusCallback &) oldSubscribeCallback);
-
-    ros::NodeHandle imu_data_node_handle_old(node_handle_, "imu_data");
     ros::NodeHandle imu_node_handle(node_handle_, "imu");
     
     imu_data_pub_ = imu_node_handle.advertise<sensor_msgs::Imu>("data", 100);
     add_offset_serv_ = private_node_handle_.advertiseService("add_offset", &ImuNode::addOffset, this);
     calibrate_serv_ = imu_node_handle.advertiseService("calibrate", &ImuNode::calibrate, this);
-    calibrate_serv_old_ = imu_data_node_handle_old.advertiseService("calibrate", &ImuNode::calibrateOld, this);
     is_calibrated_pub_ = imu_node_handle.advertise<std_msgs::Bool>("is_calibrated", 1, true);
-    is_calibrated_pub_old_ = imu_data_node_handle_old.advertise<std_msgs::Bool>("is_calibrated", 1, oldSubscribeCallback, ros::SubscriberStatusCallback(), ros::VoidPtr(), true);
 
     publish_is_calibrated();
 
@@ -366,7 +353,6 @@ public:
 
       starttime = ros::Time::now().toSec();
       imu_data_pub_.publish(reading);
-      imu_data_pub_old_.publish(reading);
       endtime = ros::Time::now().toSec();
       if (endtime - starttime > 0.05)
       {
@@ -420,7 +406,6 @@ public:
     std_msgs::Bool msg;
     msg.data = calibrated_;
     is_calibrated_pub_.publish(msg);
-    is_calibrated_pub_old_.publish(msg);
   }
 
   void pretest(diagnostic_updater::DiagnosticStatusWrapper& status)
@@ -617,12 +602,6 @@ public:
     resp.total_offset = offset_;
 
     return true;
-  }
-
-  bool calibrateOld(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
-  {
-    ROS_WARN("The imu_data/calibrate service call is deprecated. Please use imu/calibrate instead.");
-    return calibrate(req, resp);
   }
 
   bool calibrate(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
