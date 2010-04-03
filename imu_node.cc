@@ -108,7 +108,6 @@ public:
   
   ImuNode(ros::NodeHandle h) : self_test_(), diagnostic_(), 
   node_handle_(h), private_node_handle_("~"), calibrate_requested_(false),
-  calibrated_(false), 
   error_count_(0), 
   slow_count_(0), 
   desired_freq_(100), 
@@ -116,17 +115,18 @@ public:
   {
     ros::NodeHandle imu_node_handle(node_handle_, "imu");
     
+    private_node_handle_.param("autocalibrate", autocalibrate_, true);
+    private_node_handle_.param("assume_calibrated", calibrated_, false);
+    private_node_handle_.param("port", port, string("/dev/ttyUSB0"));
+    private_node_handle_.param("max_drift_rate", max_drift_rate_, 0.000100);
+
+
     imu_data_pub_ = imu_node_handle.advertise<sensor_msgs::Imu>("data", 100);
     add_offset_serv_ = private_node_handle_.advertiseService("add_offset", &ImuNode::addOffset, this);
     calibrate_serv_ = imu_node_handle.advertiseService("calibrate", &ImuNode::calibrate, this);
     is_calibrated_pub_ = imu_node_handle.advertise<std_msgs::Bool>("is_calibrated", 1, true);
 
     publish_is_calibrated();
-
-    private_node_handle_.param("autocalibrate", autocalibrate_, true);
-    
-    private_node_handle_.param("port", port, string("/dev/ttyUSB0"));
-    private_node_handle_.param("max_drift_rate", max_drift_rate_, 0.000100);
 
     cmd = microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT;
     
