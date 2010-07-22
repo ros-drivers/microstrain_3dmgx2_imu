@@ -85,7 +85,7 @@ int main(int argc, char **argv)
   }
   catch (microstrain_3dmgx2_imu::Exception& e) 
   {
-    fprintf(stderr, "Unable to open IMU at port %s. IMU may be disconnected\n.%s", port.c_str(), e.what());
+    fprintf(stderr, "Unable to open IMU at port %s. IMU may be disconnected.\n%s", port.c_str(), e.what());
     return 1;
   }
 
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
   
   std::string id = getID(imu);
 
-  fprintf(stdout, "IMU Device ID: %s", id.c_str());
+  fprintf(stdout, "IMU Device ID: %s\n", id.c_str());
 
   try
   {
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
   } 
   catch (microstrain_3dmgx2_imu::Exception& e) 
   {
-    fprintf(stderr, "Exception thrown while stopping IMU. %s", e.what());
+    fprintf(stderr, "Exception thrown while stopping IMU.\n%s", e.what());
     return 1;
   }
   
