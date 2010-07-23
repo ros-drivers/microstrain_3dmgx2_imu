@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2009, Willow Garage, Inc.
+ *  Copyright (c) 2010, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -70,13 +70,20 @@ std::string getID(microstrain_3dmgx2_imu::IMU &imu)
 
 int main(int argc, char **argv)
 {
-  if (argc < 2 || argc > 2)
+  if (argc < 2 || argc > 3)
   {
-    fprintf(stderr, "usage: get_id /dev/ttyUSB?\nOutputs the device ID of an IMU at that port.\n");
+    fprintf(stderr, "usage: get_id /dev/ttyUSB? [quiet]\nOutputs the device ID of an IMU at that port. Add a second argument for script friendly output.\n");
     return 1;
   }
 
-  std::string port = "/dev/ttyUSB0";
+  bool verbose = (argc == 2);
+  if (!verbose)
+  {
+    // In quiet mode we want to turn off logging levels that go to stdout.
+    log4cxx::LoggerPtr my_logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+    my_logger->setLevel(ros::console::g_level_lookup[ros::console::levels::Error]);
+  }
+
   microstrain_3dmgx2_imu::IMU imu;
 
   try
@@ -85,7 +92,7 @@ int main(int argc, char **argv)
   }
   catch (microstrain_3dmgx2_imu::Exception& e) 
   {
-    fprintf(stderr, "Unable to open IMU at port %s. IMU may be disconnected.\n%s", port.c_str(), e.what());
+    fprintf(stderr, "Unable to open IMU at port %s. IMU may be disconnected.\n%s", argv[1], e.what());
     return 1;
   }
 
@@ -93,7 +100,9 @@ int main(int argc, char **argv)
   
   std::string id = getID(imu);
 
-  fprintf(stdout, "IMU Device ID: %s\n", id.c_str());
+  if (verbose)
+    fprintf(stdout, "IMU Device at port %s has ID:", argv[1]);
+  fprintf(stdout, "%s\n", id.c_str());
 
   try
   {
