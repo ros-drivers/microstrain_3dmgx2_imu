@@ -101,7 +101,7 @@ int main(int argc, char **argv)
   std::string id = getID(imu);
 
   if (verbose)
-    fprintf(stdout, "IMU Device at port %s has ID:", argv[1]);
+    fprintf(stdout, "IMU Device at port %s has ID: ", argv[1]);
   fprintf(stdout, "%s\n", id.c_str());
 
   try
