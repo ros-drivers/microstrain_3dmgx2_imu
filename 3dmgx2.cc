@@ -115,7 +115,7 @@ microstrain_3dmgx2_imu::IMU::openPort(const char *port_name)
   closePort(); // In case it was previously open, try to close it first.
 
   // Open the port
-  fd = open(port_name, O_RDWR | O_SYNC , S_IRUSR | S_IWUSR | O_NONBLOCK );
+  fd = open(port_name, O_RDWR | O_SYNC | O_NONBLOCK | O_NOCTTY, S_IRUSR | S_IWUSR );
   if (fd < 0)
   {
     const char *extra_msg = "";
