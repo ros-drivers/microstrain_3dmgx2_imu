@@ -174,6 +174,7 @@ microstrain_3dmgx2_imu::IMU::closePort()
     if (continuous)
     {
       try {
+        //ROS_DEBUG("stopping continuous");
         stopContinuous();
 
       } catch (microstrain_3dmgx2_imu::Exception &e) {
@@ -275,10 +276,14 @@ microstrain_3dmgx2_imu::IMU::setContinuous(cmd command)
 void
 microstrain_3dmgx2_imu::IMU::stopContinuous()
 {
-  uint8_t cmd[1];
+  uint8_t cmd[3];
 
   cmd[0] = CMD_STOP_CONTINUOUS;
   
+  cmd[1] = 0x75; // gx3 - confirms user intent
+
+  cmd[2] = 0xb4; // gx3 - confirms user intent
+
   send(cmd, sizeof(cmd));
 
   usleep(1000000);
