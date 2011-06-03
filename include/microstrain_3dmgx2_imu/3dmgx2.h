@@ -90,8 +90,9 @@ namespace microstrain_3dmgx2_imu
    */
   class IMU
   {
-    //! IMU internal ticks/secon
-    static const int TICKS_PER_SEC      = 19660800;
+    //! IMU internal ticks/second
+    static const int TICKS_PER_SEC_GX2  = 19660800;
+    static const int TICKS_PER_SEC_GX3  = 62500;
     //! Maximum bytes allowed to be skipped when seeking a message
     static const int MAX_BYTES_SKIPPED  = 1000;
     //! Number of KF samples to sum over
@@ -200,6 +201,14 @@ namespace microstrain_3dmgx2_imu
      * \param angrate array of angular rates which will be filled
      */
     void receiveAccelAngrate(uint64_t *time, double accel[3], double angrate[3]);
+
+    //! Read a message of type "DELVEL_DELANG"
+    /*! 
+     * \param time    Pointer to uint64_t which will receive time
+     * \param delvel array of accelerations which will be filled
+     * \param delang array of angular rates which will be filled
+     */
+    void receiveDelvelDelang(uint64_t *time, double delvel[3], double delang[3]);
 
     //! Read a message of type "ACCEL_ANGRATE_MAG"
     /*! 
@@ -314,6 +323,10 @@ namespace microstrain_3dmgx2_imu
 
     //! Variables used by the kalman computation
     double fixed_offset, offset, d_offset, sum_meas;
+
+    //! Is the IMU a GX3?
+    bool is_gx3;
+
   };
 
 }

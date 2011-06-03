@@ -95,7 +95,7 @@ static unsigned long long time_helper()
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor
-microstrain_3dmgx2_imu::IMU::IMU() : fd(-1), continuous(false)
+microstrain_3dmgx2_imu::IMU::IMU() : fd(-1), continuous(false), is_gx3(false)
 { }
 
 
@@ -286,6 +286,8 @@ microstrain_3dmgx2_imu::IMU::stopContinuous()
 
   send(cmd, sizeof(cmd));
 
+  send(cmd, is_gx3 ? 3 : 1);
+
   usleep(1000000);
 
   if (tcflush(fd, TCIOFLUSH) != 0)
@@ -414,6 +416,39 @@ microstrain_3dmgx2_imu::IMU::receiveAccelAngrate(uint64_t *time, double accel[3]
   *time = filterTime(imu_time, sys_time);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Receive DELVEL_DELANG message
+void
+microstrain_3dmgx2_imu::IMU::receiveDelvelDelang(uint64_t *time, double delvel[3], double delang[3])
+{
+  int i, k;
+  uint8_t rep[31];
+
+  uint64_t sys_time;
+  uint64_t imu_time;
+
+  receive(CMD_DELVEL_DELANG, rep, sizeof(rep), 1000, &sys_time);
+
+  // Read the delta angles:
+  k = 1;
+  for (i = 0; i < 3; i++)
+  {
+    delang[i] = extract_float(rep + k);
+    k += 4;
+  }
+
+  // Read the delta velocities
+  k = 13;
+  for (i = 0; i < 3; i++)
+  {
+    delvel[i] = extract_float(rep + k) * G;
+    k += 4;
+  }
+
+  imu_time = extractTime(rep+25);
+  *time = filterTime(imu_time, sys_time);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Receive EULER message
@@ -453,6 +488,10 @@ bool microstrain_3dmgx2_imu::IMU::getDeviceIdentifierString(id_string type, char
 
   id[16] = 0;
   memcpy(id, rep+2, 16);
+
+  if( type==ID_DEVICE_NAME ){
+    is_gx3 = (strstr(id,"GX3") != NULL);
+  }
 
   return true;
 }
@@ -557,7 +596,8 @@ microstrain_3dmgx2_imu::IMU::extractTime(uint8_t* addr)
 
   uint64_t all_ticks = ((uint64_t)wraps << 32) - offset_ticks + ticks;
 
-  return  start_time + (uint64_t)(all_ticks * (1000000000.0 / TICKS_PER_SEC));
+  return  start_time + (is_gx3 ? (uint64_t)(all_ticks * (1000000000.0 / TICKS_PER_SEC_GX3)) : (uint64_t)(all_ticks * (1000000000.0 / TICKS_PER_SEC_GX2))); // syntax a bit funny because C++ compiler doesn't like conditional ?: operator near the static consts (???)
+
 }
 
 
