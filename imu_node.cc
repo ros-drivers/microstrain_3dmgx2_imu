@@ -446,11 +446,11 @@ public:
     data.angular_velocity.y = angrate[1];
     data.angular_velocity.z = angrate[2];
       
-    btQuaternion quat;
-    (btMatrix3x3(-1,0,0,
+    tf::Quaternion quat;
+    (tf::Matrix3x3(-1,0,0,
 		 0,1,0,
 		 0,0,-1)*
-     btMatrix3x3(orientation[0], orientation[3], orientation[6],
+    tf::Matrix3x3(orientation[0], orientation[3], orientation[6],
 		 orientation[1], orientation[4], orientation[7],
 		 orientation[2], orientation[5], orientation[8])).getRotation(quat);
     
