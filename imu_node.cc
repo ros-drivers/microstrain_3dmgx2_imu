@@ -631,6 +631,8 @@ public:
       } 
     } catch (microstrain_3dmgx2_imu::Exception& e) {
       error_count_++;
+      calibrated_ = false;
+      publish_is_calibrated();
       ROS_ERROR("Exception thrown while calibrating IMU %s", e.what());
       stop();
       if (old_running)
@@ -667,6 +669,8 @@ public:
       }
       // calibration failed
       else{
+	calibrated_ = false;
+	publish_is_calibrated();
 	ROS_ERROR("Imu: calibration check failed: angular drift = %f deg/msec > %f deg/msec", fabs((angle2 - angle1)*180*1000/(2.0*M_PI)), max_drift_rate_*180*1000/M_PI);
       }
       imu.stopContinuous();
