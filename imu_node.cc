@@ -118,7 +118,7 @@ public:
     private_node_handle_.param("autocalibrate", autocalibrate_, true);
     private_node_handle_.param("assume_calibrated", calibrated_, false);
     private_node_handle_.param("port", port, string("/dev/ttyUSB0"));
-    private_node_handle_.param("max_drift_rate", max_drift_rate_, 0.000100);
+    private_node_handle_.param("max_drift_rate", max_drift_rate_, 0.0002);
 
 
     imu_data_pub_ = imu_node_handle.advertise<sensor_msgs::Imu>("data", 100);
@@ -642,36 +642,51 @@ public:
     
     return true;
   }
-  
+
   void doCalibrate()
   { // Expects to be called with the IMU stopped.
     ROS_INFO("Calibrating IMU gyros.");
     imu.initGyros(&bias_x_, &bias_y_, &bias_z_);
-
+    
     // check calibration
     if (!imu.setContinuous(microstrain_3dmgx2_imu::IMU::CMD_ACCEL_ANGRATE_ORIENT)){
       ROS_ERROR("Could not start streaming data to verify calibration");
     } 
     else {
-      // get first setpoint
+      double x_rate = 0.0;
+      double y_rate = 0.0;
+      double z_rate = 0.0;
+      size_t count = 0;
       getData(reading);
-      double angle1 = tf::getYaw(reading.orientation);
-      ros::Duration(2.0).sleep();
-      getData(reading);
-      double angle2 = tf::getYaw(reading.orientation);
+      ros::Time start_time = reading.header.stamp;
+
+      while(reading.header.stamp - start_time < ros::Duration(2.0)){
+        getData(reading);
+        x_rate += reading.angular_velocity.x;
+        y_rate += reading.angular_velocity.y;
+        z_rate += reading.angular_velocity.z;
+        ++count;
+      }
+
+      double average_rate = sqrt(x_rate*x_rate + y_rate*y_rate + z_rate*z_rate) / count;
+
+      if (count < 200){
+        ROS_WARN("Imu: calibration check acquired fewer than 200 samples.");
+      }
+      
       // calibration succeeded
-      if (fabs((angle2-angle1)/2.0) < max_drift_rate_){
-	ROS_INFO("Imu: calibration check succeeded: angular drift %f deg/msec < %f deg/msec", fabs((angle2 - angle1)*180*1000/(2.0*M_PI)), max_drift_rate_*180*1000/M_PI);
-	calibrated_ = true;
-	publish_is_calibrated();
-	ROS_INFO("IMU gyro calibration completed.");
-	freq_diag_.clear();
+      if (average_rate < max_drift_rate_) {
+        ROS_INFO("Imu: calibration check succeeded: average angular drift %f deg/msec < %f deg/msec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
+        calibrated_ = true;
+        publish_is_calibrated();
+        ROS_INFO("IMU gyro calibration completed.");
+        freq_diag_.clear();
       }
       // calibration failed
       else{
-	calibrated_ = false;
-	publish_is_calibrated();
-	ROS_ERROR("Imu: calibration check failed: angular drift = %f deg/msec > %f deg/msec", fabs((angle2 - angle1)*180*1000/(2.0*M_PI)), max_drift_rate_*180*1000/M_PI);
+        calibrated_ = false;
+        publish_is_calibrated();
+        ROS_ERROR("Imu: calibration check failed: average angular drift = %f deg/msec > %f deg/msec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
       }
       imu.stopContinuous();
     }
