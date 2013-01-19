@@ -227,6 +227,10 @@ public:
 
       diagnostic_.setHardwareID(getID(true));
 
+      ROS_INFO("Initializing IMU time with offset %f.", offset_);
+
+      imu.initTime(offset_);
+
       if (autocalibrate_ || calibrate_requested_)
       {
         doCalibrate();
@@ -237,10 +241,6 @@ public:
       {
         ROS_INFO("Not calibrating the IMU sensor. Use the calibrate service to calibrate it before use.");
       }
-
-      ROS_INFO("Initializing IMU time with offset %f.", offset_);
-
-      imu.initTime(offset_);
 
       ROS_INFO("IMU sensor initialized.");
 
@@ -676,7 +676,7 @@ public:
       
       // calibration succeeded
       if (average_rate < max_drift_rate_) {
-        ROS_INFO("Imu: calibration check succeeded: average angular drift %f deg/msec < %f deg/msec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
+        ROS_INFO("Imu: calibration check succeeded: average angular drift %f mdeg/sec < %f mdeg/sec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
         calibrated_ = true;
         publish_is_calibrated();
         ROS_INFO("IMU gyro calibration completed.");
@@ -686,7 +686,7 @@ public:
       else{
         calibrated_ = false;
         publish_is_calibrated();
-        ROS_ERROR("Imu: calibration check failed: average angular drift = %f deg/msec > %f deg/msec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
+        ROS_ERROR("Imu: calibration check failed: average angular drift = %f mdeg/sec > %f mdeg/sec", average_rate*180*1000/M_PI, max_drift_rate_*180*1000/M_PI);
       }
       imu.stopContinuous();
     }
