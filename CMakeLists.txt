@@ -6,6 +6,9 @@ project(microstrain_3dmgx2_imu)
 find_package(catkin REQUIRED COMPONENTS message_generation roscpp sensor_msgs self_test diagnostic_updater tf std_srvs)
 
 find_library(LOG4CXX_LIBRARY log4cxx)
+if(NOT LOG4CXX_LIBRARY)
+  message(FATAL_ERROR "Couldn't find log4cxx library")
+endif()
 
 add_service_files(
   FILES AddOffset.srv
