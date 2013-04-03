@@ -4,7 +4,7 @@
   <description>A driver for IMUs compatible the microstrain 3DM-GX2 and 3DM-GX3 protocol. Includes 
     a heavily modified standalone driver pulled from the player distribution, 
     and a ROS node.</description>
-  <maintainer email="chadrockey@gmail.com">Chad Rockey</maintainer>
+  <maintainer email="chadrockey@willowgarage.com">Chad Rockey</maintainer>
 
   <license>LGPL</license>
 
