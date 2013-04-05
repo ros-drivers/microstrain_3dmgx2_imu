@@ -1,6 +1,6 @@
 <package>
   <name>microstrain_3dmgx2_imu</name>
-  <version>1.5.5</version>
+  <version>1.5.6</version>
   <description>A driver for IMUs compatible the microstrain 3DM-GX2 and 3DM-GX3 protocol. Includes 
     a heavily modified standalone driver pulled from the player distribution, 
     and a ROS node.</description>
