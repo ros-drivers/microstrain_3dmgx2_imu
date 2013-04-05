@@ -54,7 +54,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES 3dmgx2 ${LOG4CXX_LIBRARY}
-  CATKIN_DEPENDS message_generation roscpp sensor_msgs self_test diagnostic_updater tf std_srvs std_msgs
+  CATKIN_DEPENDS message_runtime roscpp sensor_msgs self_test diagnostic_updater tf std_srvs std_msgs
   DEPENDS
 )
 
