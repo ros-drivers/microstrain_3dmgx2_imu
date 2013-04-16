@@ -33,8 +33,8 @@ endif()
 
 ## Generate services in the 'srv' folder
 add_service_files(
-   FILES
-   AddOffset.srv
+   DIRECTORY srv
+   FILES AddOffset.srv
 )
 
 ## Generate added messages and services with any dependencies listed here
