@@ -2,8 +2,8 @@
 Changelog for package microstrain_3dmgx2_imu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.5.10 (2013-07-23)
+-------------------
 * Reduced console spam when shutting down, extended time to wait for ros::isShuttingDown()
 
 1.5.9 (2013-04-16 14:03)
