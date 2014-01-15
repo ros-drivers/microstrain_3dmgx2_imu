@@ -2,8 +2,8 @@
 Changelog for package microstrain_3dmgx2_imu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.5.12 (2014-01-15)
+-------------------
 * Added dependency on log4cxx.
 * Contributors: Chad Rockey
 
