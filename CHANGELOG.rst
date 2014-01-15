@@ -2,6 +2,11 @@
 Changelog for package microstrain_3dmgx2_imu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added dependency on log4cxx.
+* Contributors: Chad Rockey
+
 1.5.10 (2013-07-23)
 -------------------
 * Reduced console spam when shutting down, extended time to wait for ros::isShuttingDown()
