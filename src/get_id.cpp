@@ -41,7 +41,7 @@
 
 #include "ros/console.h"
 #include "microstrain_3dmgx2_imu/3dmgx2.h"
-
+#include "log4cxx/logger.h"
 
 std::string getID(microstrain_3dmgx2_imu::IMU &imu)
 {
@@ -80,8 +80,9 @@ int main(int argc, char **argv)
   if (!verbose)
   {
     // In quiet mode we want to turn off logging levels that go to stdout.
-    log4cxx::LoggerPtr my_logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
-    my_logger->setLevel(ros::console::g_level_lookup[ros::console::levels::Error]);
+    log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+    logger->setLevel(ros::console::g_level_lookup[ros::console::levels::Error]);
+    ros::console::notifyLoggerLevelsChanged();
   }
 
   microstrain_3dmgx2_imu::IMU imu;
