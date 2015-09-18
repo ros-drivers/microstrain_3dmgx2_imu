@@ -49,9 +49,9 @@
 
 // Some systems (e.g., OS X) require explicit externing of static class
 // members.
-extern const double microstrain_3dmgx2_imu::IMU::G;
-extern const double microstrain_3dmgx2_imu::IMU::KF_K_1;
-extern const double microstrain_3dmgx2_imu::IMU::KF_K_2;
+extern constexpr double microstrain_3dmgx2_imu::IMU::G;
+extern constexpr double microstrain_3dmgx2_imu::IMU::KF_K_1;
+extern constexpr double microstrain_3dmgx2_imu::IMU::KF_K_2;
 
 //! Code to swap bytes since IMU is big endian
 static inline unsigned short bswap_16(unsigned short x) {

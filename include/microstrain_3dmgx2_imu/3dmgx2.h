@@ -91,21 +91,21 @@ namespace microstrain_3dmgx2_imu
   class IMU
   {
     //! IMU internal ticks/second
-    static const int TICKS_PER_SEC_GX2  = 19660800;
-    static const int TICKS_PER_SEC_GX3  = 62500;
+    static const int TICKS_PER_SEC_GX2 = 19660800;
+    static const int TICKS_PER_SEC_GX3 = 62500;
     //! Maximum bytes allowed to be skipped when seeking a message
-    static const int MAX_BYTES_SKIPPED  = 1000;
+    static const int MAX_BYTES_SKIPPED = 1000;
     //! Number of KF samples to sum over
-    static const unsigned int KF_NUM_SUM= 100;
+    static const unsigned int KF_NUM_SUM = 100;
     //! First KF term
-    static const double KF_K_1          = 0.00995031;
+    static constexpr double KF_K_1 = 0.00995031;
     //! Second KF term
-    static const double KF_K_2          = 0.0000497506;
+    static constexpr double KF_K_2 = 0.0000497506;
 
   public: 
 
     //! Gravity (m/sec^2)
-    static const double G               = 9.80665;    
+    static constexpr double G = 9.80665;
 
     //! Enumeration of possible IMU commands
     enum cmd {
