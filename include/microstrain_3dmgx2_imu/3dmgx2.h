@@ -269,10 +269,10 @@ namespace microstrain_3dmgx2_imu
      */
     bool getDeviceIdentifierString(id_string type, char id[17]);
 
-  private:
     //! Send a command to the IMU and wait for a reply
     int transact(void *cmd, int cmd_len, void *rep, int rep_len, int timeout = 0);
 
+  private:
     //! Send a single packet frmo the IMU
     int send(void *cmd, int cmd_len);
 
