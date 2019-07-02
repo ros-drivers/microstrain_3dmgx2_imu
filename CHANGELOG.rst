@@ -2,6 +2,13 @@
 Changelog for package microstrain_3dmgx2_imu
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge pull request `#11 <https://github.com/ros-drivers/microstrain_3dmgx2_imu/issues/11>`_ from scpeters/fix_melodic_build
+  Fix melodic build (backwards compatible alternative to `#10 <https://github.com/ros-drivers/microstrain_3dmgx2_imu/issues/10>`_)
+* from C++11, constexpr specifier is requred for double
+* Contributors: Kei Okada, Tony Baltovski
+
 1.5.12 (2014-01-15)
 -------------------
 * Added dependency on log4cxx.
