@@ -90,6 +90,10 @@ namespace microstrain_3dmgx2_imu
    */
   class IMU
   {
+// from C++11, constexpr specifier is requred for double
+#if __cplusplus > 199711L
+#define const constexpr
+#endif
     //! IMU internal ticks/second
     static const int TICKS_PER_SEC_GX2  = 19660800;
     static const int TICKS_PER_SEC_GX3  = 62500;
@@ -106,6 +110,9 @@ namespace microstrain_3dmgx2_imu
 
     //! Gravity (m/sec^2)
     static const double G               = 9.80665;    
+#if __cplusplus > 199711L
+#undef const
+#endif
 
     //! Enumeration of possible IMU commands
     enum cmd {
