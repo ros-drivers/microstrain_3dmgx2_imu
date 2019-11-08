@@ -1,4 +1,6 @@
-<package>
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>microstrain_3dmgx2_imu</name>
   <version>1.5.13</version>
   <description>A driver for IMUs compatible the microstrain 3DM-GX2 and 3DM-GX3 protocol. Includes 
@@ -15,25 +17,38 @@
   <author>Jeremy Leibs</author>
   <author>Blaise Gassend</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>roscpp</build_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>rclcpp_components</build_depend>
+  <build_depend>class_loader</build_depend>
   <build_depend>log4cxx</build_depend>
-  <build_depend>message_generation</build_depend>
+  <build_depend>rosidl_default_generators</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>self_test</build_depend>
   <build_depend>diagnostic_updater</build_depend>
-  <build_depend>tf</build_depend>
+  <build_depend>tf2</build_depend>
   <build_depend>std_srvs</build_depend>
   <build_depend>std_msgs</build_depend>
 
-  <run_depend>roscpp</run_depend>
-  <run_depend>log4cxx</run_depend>
-  <run_depend>message_runtime</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>self_test</run_depend>
-  <run_depend>diagnostic_updater</run_depend>
-  <run_depend>tf</run_depend>
-  <run_depend>std_srvs</run_depend>
-  <run_depend>std_msgs</run_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>rclcpp_components</exec_depend>
+  <exec_depend>class_loader</exec_depend>
+  <exec_depend>log4cxx</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>self_test</exec_depend>
+  <exec_depend>diagnostic_updater</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

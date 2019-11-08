@@ -1,135 +1,104 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(microstrain_3dmgx2_imu)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS message_generation roscpp sensor_msgs self_test diagnostic_updater tf std_srvs std_msgs)
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 find_library(LOG4CXX_LIBRARY log4cxx)
 if(NOT LOG4CXX_LIBRARY)
   message(FATAL_ERROR "Couldn't find log4cxx library")
 endif()
 
-## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+# find dependencies
+find_package(ament_cmake REQUIRED)
 
-
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/groovy/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
-
-#######################################
-## Declare ROS messages and services ##
-#######################################
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
-
-## Generate services in the 'srv' folder
-add_service_files(
-   DIRECTORY srv
-   FILES AddOffset.srv
-)
-
-## Generate added messages and services with any dependencies listed here
-generate_messages(
-   DEPENDENCIES
-   std_msgs
-)
-
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES 3dmgx2 ${LOG4CXX_LIBRARY}
-  CATKIN_DEPENDS message_runtime roscpp sensor_msgs self_test diagnostic_updater tf std_srvs std_msgs
-  DEPENDS
-)
-
-###########
-## Build ##
-###########
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(class_loader REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(self_test REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(include ${catkin_INCLUDE_DIRS})
+include_directories(include)
 
 ## Declare a cpp library
-add_library(3dmgx2 src/3dmgx2.cc)
-
-## Declare a cpp executable
-add_executable(imu_node src/imu_node.cc)
-target_link_libraries(imu_node 3dmgx2 ${catkin_LIBRARIES})
-add_dependencies(imu_node microstrain_3dmgx2_imu_gencpp)
-
-# Utility to recover ID from IMU
-add_executable(get_id src/get_id.cpp)
-target_link_libraries(get_id 3dmgx2 ${catkin_LIBRARIES} ${LOG4CXX_LIBRARY})
-
-## Add cmake target dependencies of the executable/library
-## as an example, message headers may need to be generated before nodes
-# add_dependencies(microstrain_node microstrain_generate_messages_cpp)
-
-## Specify libraries to link a library or executable target against
-# target_link_libraries(microstrain_node
-#   ${catkin_LIBRARIES}
-# )
-
-#############
-## Install ##
-#############
-
-# all install targets should use catkin DESTINATION variables
-# See http://ros.org/doc/groovy/api/catkin/html/adv_user_guide/variables.html
-
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
-
-## Mark executables and/or libraries for installation
-install(TARGETS 3dmgx2 imu_node get_id
-   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+add_library(3dmgx2 SHARED
+  src/3dmgx2.cc
 )
 
-## Mark cpp header files for installation
-install(DIRECTORY include/${PROJECT_NAME}/
-   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-   FILES_MATCHING PATTERN "*.h"
-   PATTERN ".svn" EXCLUDE
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/AddOffset.srv"
+  DEPENDENCIES builtin_interfaces
 )
 
-## Mark other files for installation (e.g. launch and bag files, etc.)
-install(FILES
-   COPYING.lib
-   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+ament_export_dependencies(rosidl_default_runtime)
+
+add_library(microstrain_3dmgx2_node SHARED
+  src/imu_node.cc
 )
 
-#############
-## Testing ##
-#############
+rclcpp_components_register_nodes(microstrain_3dmgx2_node "microstrain_3dmgx2_imu::ImuNode")
 
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_microstrain.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
+target_link_libraries(microstrain_3dmgx2_node
+  3dmgx2
+)
 
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
+ament_target_dependencies(microstrain_3dmgx2_node
+  rclcpp
+  class_loader
+  builtin_interfaces
+  rosidl_default_generators
+  sensor_msgs
+  self_test
+  diagnostic_updater
+  tf2
+  std_srvs
+  std_msgs
+)
+
+get_default_rmw_implementation(rmw_implementation)
+find_package("${rmw_implementation}" REQUIRED)
+get_rmw_typesupport(typesupport_impls "${rmw_implementation}" LANGUAGE "cpp")
+
+foreach(typesupport_impl ${typesupport_impls})
+  rosidl_target_interfaces(microstrain_3dmgx2_node
+    ${PROJECT_NAME} ${typesupport_impl}
+  )
+endforeach()
+
+target_include_directories(microstrain_3dmgx2_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+install(TARGETS microstrain_3dmgx2_node
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # uncomment the line when a copyright and license is not present in all source files
+  #set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # uncomment the line when this package is not in a git repo
+  #set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
