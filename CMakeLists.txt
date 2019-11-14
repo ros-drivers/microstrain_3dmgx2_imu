@@ -46,6 +46,18 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 ament_export_dependencies(rosidl_default_runtime)
 
+add_executable(get_id
+  src/get_id.cpp
+)
+
+target_link_libraries(get_id
+  3dmgx2
+)
+
+ament_target_dependencies(get_id
+  rclcpp
+)
+
 add_library(microstrain_3dmgx2_node SHARED
   src/imu_node.cc
 )
@@ -84,7 +96,7 @@ target_include_directories(microstrain_3dmgx2_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-install(TARGETS microstrain_3dmgx2_node
+install(TARGETS 3dmgx2 microstrain_3dmgx2_node get_id
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

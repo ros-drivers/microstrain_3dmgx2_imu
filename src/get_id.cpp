@@ -79,13 +79,6 @@ int main(int argc, char **argv)
   }
 
   bool verbose = (argc == 2);
-  if (!verbose)
-  {
-    // In quiet mode we want to turn off logging levels that go to stdout.
-    // log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
-    // logger->setLevel(ros::console::g_level_lookup[ros::console::levels::Error]);
-    // ros::console::notifyLoggerLevelsChanged();
-  }
 
   microstrain_3dmgx2_imu::IMU imu;
 
