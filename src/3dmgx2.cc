@@ -34,7 +34,7 @@
 
 //#include <ros/console.h>
 
-#include "microstrain_3dmgx2_imu/3dmgx2.h"
+#include "microstrain_3dmgx2_imu/3dmgx2.hpp"
 
 #include "poll.h"
 
